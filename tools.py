@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
+
 import time
+import json
 import logging
 
 from copy import deepcopy
@@ -10,7 +12,10 @@ from telebot import types
 
 __author__ = 'Carlos Añorve'
 __version__ = '1.0'
-__all__ = []
+
+__all__ = ['get_message_chat_id',
+           'make_buttons',
+           'read_json']
 
 
 logger = logging.getLogger(__name__)
@@ -92,3 +97,25 @@ def make_buttons(estructure, rows=3):
     if len(buttons) > 0:
         keyboard_markup.row(*buttons)
     return keyboard_markup
+
+
+def read_json(path):
+    """
+    Lee un archivo json y lo pasa a diccionario.
+
+    Args:
+        path(str): ubicacion del archivo en sistema.
+
+    Returns:
+         Devuelve un diccionario con la estructura del json leido.
+    """
+    try:
+        with open(path, 'r') as json_file:
+            json_data = json.loads(json_file.read())
+
+    except Exception as details:
+        logger.warning('Error al intentar leer el archivo json.\n'
+                       'Path: {}\n'
+                       'Detalles: {}'.format(path, details))
+    else:
+        return json_data
