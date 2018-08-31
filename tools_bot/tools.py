@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import time
 import json
 import logging
@@ -71,6 +70,7 @@ def make_buttons(estructure, rows=3):
 
     Args:
         estructure(dict): Estructura que con la que se creara el markup
+        rows(int): Determin la cntidade de columas para mostra botones.
 
     Returns:
          KeyBoardMarkup
@@ -118,4 +118,5 @@ def read_json(path):
                        'Detalles: {}'.format(path, details))
     else:
         return json_data
+
 
