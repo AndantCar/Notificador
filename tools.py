@@ -112,10 +112,10 @@ def read_json(path):
     try:
         with open(path, 'r') as json_file:
             json_data = json.loads(json_file.read())
-
     except Exception as details:
         logger.warning('Error al intentar leer el archivo json.\n'
                        'Path: {}\n'
                        'Detalles: {}'.format(path, details))
     else:
         return json_data
+
