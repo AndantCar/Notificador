@@ -66,6 +66,7 @@ def make_buttons(estructure, rows=3):
 
     Args:
         estructure(dict): Estructura que con la que se creara el markup
+        rows(int): Determin la cntidade de columas para mostra botones.
 
     Returns:
          KeyBoardMarkup
