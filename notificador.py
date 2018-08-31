@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import time
 import logging
 
@@ -47,7 +48,11 @@ def get_message(message):
 def main():
     binance_bot.polling(none_stop=True)
     while True:
-        time.sleep(10)
+        try:
+            time.sleep(10)
+        except KeyboardInterrupt:
+            break
+    sys.exit(0)
 
 
 if __name__ == '__main__':
