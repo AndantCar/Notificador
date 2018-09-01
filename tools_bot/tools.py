@@ -13,7 +13,7 @@ __author__ = 'Carlos Añorve'
 __version__ = '1.0'
 
 __all__ = ['get_message_chat_id',
-           'make_buttons',
+           'make_buttons_of_dict',
            'read_json']
 
 
@@ -64,7 +64,7 @@ def get_message_chat_id(message):
     return user_id, message_id
 
 
-def make_buttons(estructure, rows=3):
+def make_buttons_of_dict(estructure, rows=3):
     """
     Crea un KeyBoardMarkup con la estructura pasada
 
@@ -118,5 +118,40 @@ def read_json(path):
                        'Detalles: {}'.format(path, details))
     else:
         return json_data
+
+
+def make_button_of_list(names_buttons, rows=3):
+    """
+    Crea una estructura de botones a partir de una lista.
+
+    Args:
+        names_buttons(list): lista de nombre de botones.
+
+    Returns:
+        KeyBoardMarkup
+    """
+    butons = list()
+    try:
+        keyboardMarkup = types.InlineKeyboardMarkup()
+    except Exception as details:
+        logger.warning('Error al intentar crear el keyboardMarkup')
+        return None
+    for name_button in names_buttons:
+        try:
+            inline_button = types.InlineKeyboardButton(name_button,
+                                                       callback_data=name_button)
+        except Exception as details:
+            logger.warning('Error al intentar crear el boton.')
+        else:
+            butons.append(deepcopy(inline_button))
+            del inline_button
+            if len(butons) == rows:
+                keyboardMarkup.row(*butons)
+                butons = list()
+    if len(butons) > 0:
+        keyboardMarkup.row(*butons)
+    return keyboardMarkup
+
+
 
 

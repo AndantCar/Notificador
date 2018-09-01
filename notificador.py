@@ -3,6 +3,7 @@
 import sys
 import time
 import logging
+from osomatli.binance import get_symbols
 
 from tools_bot import tools, texts_out
 
@@ -30,18 +31,17 @@ HELP_MESSAGE = ('''
 <b>Que puedes hacer con este bot?</b>
 ''')
 
-
+botones_base = tools.read_json('configuraciones/botones_base.json')
 binance_bot = telebot.TeleBot(TOKEN)
 
 
 @binance_bot.message_handler(commands=['start', 'help'])
 def get_message(message):
     chat_id, message_id = tools.get_message_chat_id(message)
-    estructura = {'Boton_1': '/start', 'Boton_2': '/start','Boton_3': '/start',
-                  'Boton_4': '/start', 'Boton_5': '/start','Boton_6': '/start'}
+    ok = {'OK': botones_base['OK']}
     binance_bot.send_message(chat_id=chat_id,
                              text=texts_out.HELP_MESSAGE,
-                             reply_markup=tools.make_buttons(estructura),
+                             reply_markup=tools.make_button_of_list(get_symbols(), 4),
                              parse_mode='HTML')
 
 
