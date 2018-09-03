@@ -14,6 +14,7 @@ __version__ = '1.0'
 
 __all__ = ['get_message_chat_id',
            'make_buttons_of_dict',
+           'make_button_of_list',
            'read_json']
 
 
@@ -126,32 +127,60 @@ def make_button_of_list(names_buttons, rows=3):
 
     Args:
         names_buttons(list): lista de nombre de botones.
+        rows(int): Define la cantidad de columnas en el layout de botones
 
     Returns:
         KeyBoardMarkup
     """
     butons = list()
     try:
-        keyboardMarkup = types.InlineKeyboardMarkup()
+        keyboard_markup = types.InlineKeyboardMarkup()
     except Exception as details:
-        logger.warning('Error al intentar crear el keyboardMarkup')
+        logger.warning('Error al intentar crear el keyboardMarkup\n'
+                       'Detalles: {}'.format(details))
         return None
     for name_button in names_buttons:
         try:
             inline_button = types.InlineKeyboardButton(name_button,
                                                        callback_data=name_button)
         except Exception as details:
-            logger.warning('Error al intentar crear el boton.')
+            logger.warning('Error al intentar crear el boton.\n'
+                           'Details: {}'.format(details))
         else:
             butons.append(deepcopy(inline_button))
             del inline_button
             if len(butons) == rows:
-                keyboardMarkup.row(*butons)
+                keyboard_markup.row(*butons)
                 butons = list()
     if len(butons) > 0:
-        keyboardMarkup.row(*butons)
-    return keyboardMarkup
+        keyboard_markup.row(*butons)
+    return keyboard_markup
 
 
+def dataframe2json(data_frame):
+    """
+    Convierte el data frame obtenido del
+    indicador y lo convierte a json.
 
+    Nota:
+    El data frame debe mantener el nombre del simbolo
+    en la primera columan despues del indice
 
+    Args:
+        data_frame(): Dataframe btenido del indicador
+
+    Returns:
+        Devuelve los datos del data frame en un json.
+    """
+    llaves = ['SYMBOL', 'open_time_dt', 'close', 'MONEY_FLOW_INDEX', 'MACDT_HIST',
+              'volume', 'VMA(10)', 'SIGNAL']
+    senales = {}
+    for datos in data_frame.values:
+        senal = {}
+        for i in range(len(llaves)):
+            try:
+                senal[llaves[i + 1]] = str(datos[i + 1])
+            except IndexError:
+                pass
+        senales[datos[0]] = str(senal)
+    return json.dumps(senales)

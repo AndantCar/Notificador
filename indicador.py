@@ -2,14 +2,17 @@
 # -*- encoding:utf-8 -*-
 
 import time
-import threading
-import argparse
 import logging
+import argparse
+import threading
+
 from datetime import datetime
-from osomatli.finance import get_signals
-from osomatli.binance import get_symbols
 
 import zmq
+
+from tools_bot.tools import dataframe2json
+from osomatli.finance import get_signals
+from osomatli.binance import get_symbols
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,7 @@ def send_message():
 def calc_stats(s, interval: str = '5m'):
     now = datetime.now()
     data = get_signals(s, interval=interval)
+    dataframe2json(data)
     print('Revisión {} : {:%H:%M:%S}'.format(interval, now))
     print(data.sort_values(by='open_time_dt', ascending=False))
     while FLAG:

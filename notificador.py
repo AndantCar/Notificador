@@ -3,10 +3,11 @@
 import sys
 import time
 import logging
-from osomatli.binance import get_symbols
 
+from osomatli.binance import get_symbols
 from tools_bot import tools, texts_out
 
+import zmq
 import telebot
 
 level_debug = '1'
