@@ -1,60 +1,60 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
+# -*- encoding:utf-8 -*-
 
-import sys
-import time
-import logging
-
-from osomatli.binance import get_symbols
-from tools_bot import tools, texts_out
 
 import zmq
-import telebot
+import json
+import requests
 
-level_debug = '1'
-levels = {'1': logging.DEBUG,
-          '2': logging.INFO,
-          '3': logging.WARNING,
-          '4': logging.ERROR,
-          '5': logging.CRITICAL}
-
-logging.basicConfig(filename=f'log_Supervisor{time.strftime("%d-%m-%Y")}.log',
-                    level=levels[level_debug],
-                    format='%(asctime)s - %(name)s - %(message)s')
+from tools_bot import tools
 
 
-__author__ = 'Carlos Añorve'
-__version__ = '1.0'
-__all__ = []
+_USUARIOS_ = []
 
 
-TOKEN = '635048049:AAHmD4MK8AgiiMEzp8ZntRl5EfbQRa7aMVg'
-HELP_MESSAGE = ('''
-<b>Que puedes hacer con este bot?</b>
-''')
-
-botones_base = tools.read_json('configuraciones/botones_base.json')
-binance_bot = telebot.TeleBot(TOKEN)
-
-
-@binance_bot.message_handler(commands=['start', 'help'])
-def get_message(message):
-    chat_id, message_id = tools.get_message_chat_id(message)
-    ok = {'OK': botones_base['OK']}
-    binance_bot.send_message(chat_id=chat_id,
-                             text=texts_out.HELP_MESSAGE,
-                             reply_markup=tools.make_button_of_list(get_symbols(), 4),
-                             parse_mode='HTML')
+token = '635048049:AAHmD4MK8AgiiMEzp8ZntRl5EfbQRa7aMVg'
+URL_API = 'https://api.telegram.org/bot{0}/{1}'
+context = zmq.Context()
+from_bot = context.socket(zmq.PULL)
+from_indicadot = context.socket(zmq.PULL)
+from_bot.connect('tcp://127.0.0.1:5551')
+from_indicadot.connect('tcp://127.0.0.1:5550')
 
 
-def main():
-    binance_bot.polling(none_stop=True)
-    while True:
-        try:
-            time.sleep(10)
-        except KeyboardInterrupt:
-            break
-    sys.exit(0)
+def send_message(message, chat_id):
+    comand = 'sendMessage'
+    params = {'chat_id': str(chat_id), 'text': message}
+    try:
+        result = requests.get(url=URL_API.format(token, comand), params=params)
+    except Exception as details:
+        print('Error al intentar enviar el mensaje.\n'
+              'Details: {}'.format(details))
+    else:
+        if result.status_code == requests.codes.ok:
+            print('El mensaje se envio correctamente')
+        else:
+            print('Error al envir mensaje\n'
+                  'Code error: {}'.format(result.status_code))
 
 
-if __name__ == '__main__':
-    main()
+poller = zmq.Poller()
+poller.register(from_bot, zmq.POLLIN)
+poller.register(from_indicadot, zmq.POLLIN)
+while 1:
+    socks = dict(poller.poll())
+    if from_bot in socks and socks[from_bot] == zmq.POLLIN:
+        message = json.loads(from_bot.recv_json())
+        if not (message['chat_id'] in _USUARIOS_):
+            _USUARIOS_.append(message['chat_id'])
+        else:
+            send_message('Ya estas regiistrado porfavor evita hacer spam', message['chat_id'])
+        print('Se activo la asignacion')
+        print(_USUARIOS_)
+    if from_indicadot in socks and socks[from_indicadot] == zmq.POLLIN:
+        message = from_indicadot.recv_json()
+        message = json.loads(message)
+        message = tools.json2str(message)
+        print(message)
+        print('Se activo la notiicaciion')
+        for user in _USUARIOS_:
+            send_message(message, user)

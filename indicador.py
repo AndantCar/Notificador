@@ -22,28 +22,19 @@ logging.basicConfig(level=logging.WARNING,
 FLAG = True
 
 
-def send_message():
-    try:
-        context = zmq.Context()
-    except Exception as details:
-        logger.warning('No fue posible crear el objeto context\n'
-                       'Details: {}'.format(details))
-        return None
-    try:
-        socket = context.socket(zmq.REQ)
-    except Exception as details:
-        logger.warning('No fue posible crear el socket\n'
-                       'Details: {}'.format(details))
-        del context
-        return None
-
-
-def calc_stats(s, interval: str = '5m'):
-    now = datetime.now()
-    data = get_signals(s, interval=interval)
-    dataframe2json(data)
-    print('Revisión {} : {:%H:%M:%S}'.format(interval, now))
-    print(data.sort_values(by='open_time_dt', ascending=False))
+def calc_stats(s, interval='5m', port=5550):
+    """
+   context = zmq.Context()
+    zmq_socket = context.socket(zmq.PUSH)
+    zmq_socket.bind("tcp://127.0.0.1:5557")
+    # Start your result manager and workers before you start your producers
+    for num in xrange(20000):
+        work_message = { 'num' : num }
+        zmq_socket.send_json(work_message)
+    """
+    context = zmq.Context()
+    socket = context.socket(zmq.PUSH)
+    socket.bind('tcp://127.0.0.1:{}'.format(port))
     while FLAG:
         now = datetime.now()
         if interval[-1] == 'm':
@@ -51,17 +42,22 @@ def calc_stats(s, interval: str = '5m'):
         elif interval[-1] == 'h':
             c = (now.hour % int(interval[:-1]) == 0) and (now.minute == 0)
         else:
+            socket.close()
+            context.term()
             raise NotImplementedError(
                 'El tipo de intervalo {} no ha sido implementado'.format(interval[-1]))
-        if (c) and (now.second > 0):
+        if c and (now.second > 0):
             try:
                 data = get_signals(s, interval=interval)
-                print('Revisión {} : {:%H:%M:%S}'.format(interval, now))
-                print(data.sort_values(by='open_time_dt', ascending=False))
+                _json_actual_ = dataframe2json(data)
+                socket.send_json(_json_actual_)
                 time.sleep(60)
             except Exception as e:
                 print(e)
                 time.sleep(1)
+    socket.close()
+    context.term()
+
 
 
 def main(intervalos=None):

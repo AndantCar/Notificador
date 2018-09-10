@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
+# -*- encoding:utf-8 -*-
 
 import time
 import json
@@ -12,10 +13,11 @@ from telebot import types
 __author__ = 'Carlos Añorve'
 __version__ = '1.0'
 
-__all__ = ['get_message_chat_id',
+__all__ = ['get_message_id_and_chat_id',
            'make_buttons_of_dict',
            'make_button_of_list',
-           'read_json']
+           'read_json',
+           'dataframe2json']
 
 
 logger = logging.getLogger(__name__)
@@ -31,38 +33,70 @@ logging.basicConfig(filename=f'log_Supervisor{time.strftime("%d-%m-%Y")}.log',
                     format='%(asctime)s - %(name)s - %(message)s')
 
 
-def get_message_chat_id(message):
+def get_message_id_and_chat_id(message):
     """
-    Obtiene el id del usuario y el mensage
+    Obtiene el id del chat con usuario y el mensage.
 
     Args:
-        message(telebot.types.Message):
-    :return:
+        message(telebot.types.Message, telebot.types.CallbackQuery): Mensaje recibido por el bot.
+
+    Returns:
+        chat_id, message_id(int, str): idntificador del char e identificador del mensaje recibido.
     """
     try:
         logger.debug('Intentando obtener el id del chat.')
-        user_id = message.chat.id
-    except AttributeError:
-        logger.error('No fue posible obtener el id del chat con message.chat.id')
         try:
-            logger.debug('Intentando obtener id del chat.')
-            user_id = message.from_user.id
-        except AttributeError:
-            logger.warning('No es posible obtener el id del chat.')
+            chat_id = int(message.from_user.id)
+        except ValueError:
+            print('Error al intentar pasar a int el id del chat.\n'
+                  'chat_id: {}'.format(message.from_user.id))
+            return None
+    except AttributeError:
+        logger.error('No fue posible obtener el id del chat con message.from_user.id')
         return None
 
     try:
         logger.debug('Intentando obtener el id del mensage')
-        message_id = message.message_id
+        try:
+            message_id = int(message.message_id)
+        except ValueError:
+            print('Error al intentar pasar a int el id del mensaje.')
+            return None
     except AttributeError:
         logger.error('Error al intentar obtener el id del mensage')
-        try:
-            logger.debug('Intentando obtener el id del mensage')
-            message_id = message.message.message_id
-        except AttributeError:
-            logger.critical('Error al intentar obener el id del mensage')
-            return None
-    return user_id, message_id
+        return None
+    return chat_id, message_id
+
+
+def get_name(message):
+    """
+    Extrae el nombre del usuario que envio en mensaje.
+
+    Args:
+        message(telebot.types.Message): Mensaje recibido por el bot.
+
+    Returns:
+         name(str): Nombre del usuario que mando el mensaje.
+    """
+    try:
+        name = message.from_user.first_name
+    except AttributeError:
+        logger.warning('No es posible obtener el nombre del usuario.')
+        return None
+    else:
+        if name is None:
+            logger.warning('El nombre de usuario apaece vacio.')
+            name = ''
+    try:
+        last_name = message.from_user.last_name
+    except AttributeError:
+        logger.error('No es posible obtener el ultimo nombre del usuario.')
+    else:
+        if last_name is None:
+            logger.info('El ultimo nombre del usuario aparece vacio.')
+        else:
+            name += ' {}'.format(last_name)
+    return name
 
 
 def make_buttons_of_dict(estructure, rows=3):
@@ -121,16 +155,18 @@ def read_json(path):
         return json_data
 
 
-def make_button_of_list(names_buttons, rows=3):
+def make_button_of_list(names_buttons, rows=3, commands=False, callback=False):
     """
     Crea una estructura de botones a partir de una lista.
 
     Args:
         names_buttons(list): lista de nombre de botones.
         rows(int): Define la cantidad de columnas en el layout de botones
+        commands(bool): Define si los botones creados seran comandos.
+        callback(bool): Define si los botones se usaran para un callback_query_handler
 
     Returns:
-        KeyBoardMarkup
+        keyboard_markup(types.InlineKeyboardMarkup): Markup con los botones.
     """
     butons = list()
     try:
@@ -141,8 +177,19 @@ def make_button_of_list(names_buttons, rows=3):
         return None
     for name_button in names_buttons:
         try:
-            inline_button = types.InlineKeyboardButton(name_button,
-                                                       callback_data=name_button)
+            if commands and not callback:
+                inline_button = types.InlineKeyboardButton(name_button,
+                                                           callback_data='/{}'.format(name_button))
+            elif callback and not commands:
+                inline_button = types.InlineKeyboardButton(name_button,
+                                                           callback_data='cb_{}'.format(name_button))
+
+            elif not callback and not commands:
+                inline_button = types.InlineKeyboardButton(name_button,
+                                                           callback_data=name_button)
+            else:
+                logger.warning('No debe pasar los argumentos callback y commands como True al mismo tiempo.')
+                raise ArgumentError('Conflicto entre argumentos.')
         except Exception as details:
             logger.warning('Error al intentar crear el boton.\n'
                            'Details: {}'.format(details))
@@ -181,6 +228,104 @@ def dataframe2json(data_frame):
             try:
                 senal[llaves[i + 1]] = str(datos[i + 1])
             except IndexError:
-                pass
-        senales[datos[0]] = str(senal)
+                break
+        senales[datos[0]] = senal
     return json.dumps(senales)
+
+
+def json2str(json_data):
+    str_json = str()
+    for llave in json_data:
+        str_json += '{}:'.format(llave)
+        if isinstance(json_data[llave], dict):
+            str_json += '\n'
+            for llave_interna in json_data[llave]:
+                str_json += '  {}: '.format(llave_interna)
+                str_json += json_data[llave][llave_interna]
+                str_json += '\n'
+        else:
+            str_json += json_data[llave]
+            str_json += '\n'
+        str_json += '\n'
+    return str_json
+
+
+
+class ArgumentError(Exception):
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
+
+
+estructura = {'content_type': 'text',
+              'message_id': 55,
+              'from_user': {'id': 547815968,
+                            'is_bot': False,
+                            'first_name': 'Carlos',
+                            'username': None,
+                            'last_name': 'Añorve',
+                            'language_code': 'es'},
+              'date': 1536545102,
+              'chat': {'type': 'private',
+                       'last_name': 'Añorve',
+                       'first_name': 'Carlos',
+                       'username': None,
+                       'id': 547815968,
+                       'title': None,
+                       'all_members_are_administrators': None,
+                       'photo': None,
+                       'description': None,
+                       'invite_link': None,
+                       'pinned_message': None,
+                       'sticker_set_name': None,
+                       'can_set_sticker_set': None},
+              'forward_from_chat': None,
+              'forward_from': None,
+              'forward_date': None,
+              'reply_to_message': None,
+              'edit_date': None,
+              'media_group_id': None,
+              'author_signature': None,
+              'text': '/start',
+              'entities': "[<telebot.types.MessageEntity object at 0x7f81c22f4c18>]",
+              'caption_entities': None,
+              'audio': None,
+              'document': None,
+              'photo': None,
+              'sticker': None,
+              'video': None,
+              'video_note': None,
+              'voice': None,
+              'caption': None,
+              'contact': None,
+              'location': None,
+              'venue': None,
+              'new_chat_member': None,
+              'new_chat_members': None,
+              'left_chat_member': None,
+              'new_chat_title': None,
+              'new_chat_photo': None,
+              'delete_chat_photo': None,
+              'group_chat_created': None,
+              'supergroup_chat_created': None,
+              'channel_chat_created': None,
+              'migrate_to_chat_id': None,
+              'migrate_from_chat_id': None,
+              'pinned_message': None,
+              'invoice': None,
+              'successful_payment': None,
+              'connected_website': None,
+              'json': {'message_id': 55,
+                       'from': {'id': 547815968,
+                                'is_bot': False,
+                                'first_name': 'Carlos',
+                                'last_name': 'Añorve',
+                                'language_code': 'es'},
+                       'chat': {'id': 547815968,
+                                'first_name': 'Carlos',
+                                'last_name': 'Añorve',
+                                'type': 'private'},
+                       'date': 1536545102,
+                       'text': '/start',
+                       'entities': [{'offset': 0,
+                                     'length': 6,
+                                     'type': 'bot_command'}]}}
