@@ -7,6 +7,8 @@ import logging
 
 from copy import deepcopy
 
+import requests
+
 from telebot import types
 
 
@@ -31,6 +33,8 @@ levels = {'1': logging.DEBUG,
 logging.basicConfig(filename=f'log_Supervisor{time.strftime("%d-%m-%Y")}.log',
                     level=levels[level_debug],
                     format='%(asctime)s - %(name)s - %(message)s')
+
+URL_API = 'https://api.telegram.org/bot{0}/{1}'
 
 
 def get_message_id_and_chat_id(message):
@@ -234,6 +238,15 @@ def dataframe2json(data_frame):
 
 
 def json2str(json_data):
+    """
+    Convierte el json en un string para enviar el mensaje
+
+    Args:
+        json_data(dict): Informacion del json
+
+    Returns:
+         str_json(str): string con la informacion del json.
+    """
     str_json = str()
     for llave in json_data:
         str_json += '{}:'.format(llave)
@@ -250,8 +263,108 @@ def json2str(json_data):
     return str_json
 
 
+def request_is_ok(response):
+    """
+    Verifica que la espuesta de la solicitud sea satisfactoria.
+
+    Argss:
+        response(requests.models.Response): Respuesta obtenida de la solicitud.
+
+    Returns:
+        None
+    """
+    if response.status_code == requests.codes.ok:
+        logger.debug('La solisutd se ejecuto correctamente.')
+    else:
+        logger.warning('Algun error ocurrio en la solicitud.\n'
+                       'Error: {}'.format(response.status_code))
+        raise MethodRequestError('Codigo de error: {}'.format(response.status_code))
+
+
+def response2dict(response):
+    """
+    Convierte la respuesta obtenida a un diccionario.
+
+    Args:
+        response(requests.models.Response): Respuesta obtenida de la solicitud.
+    Returns:
+         dict
+    """
+    try:
+        result = json.loads(response.text)
+    except Exception as details:
+        logger.error('Error al intentar obtener el json\n'
+                     'se intentara con request.get.content\n'
+                     'Detalles de error: {}'.format(details))
+        try:
+            result = json.loads(response.content)
+        except Exception as details:
+            logger.warning('Imposible coseguir el contenido de la solicutud\n'
+                           'Detalles de error: {}'.format(details))
+            raise ErrorToExtractJson(details)
+    return result
+
+
+def send_message(chat_id, message, token):
+    """
+    Envia un mensaje al chat espesificado a travez de la api de telegram bot
+
+    Args:
+        chat_id(int, str): id que identifica al chat.
+        message(str): Mensaje ue se quiere enviar.
+        token(str): token espesifico del bot que se quiere utilizar
+
+    Returns:
+         None
+    """
+    params = {'chat_id': str(chat_id), 'text': message}
+    try:
+        response = requests.get(url=URL_API.format(token, 'sendMessage'), params=params)
+    except Exception as details:
+        logger.warning('Error al intentar enviar el mensaje.\n'
+                       'Details: {}'.format(details))
+        raise MethodRequestError(details)
+    else:
+        request_is_ok(response)
+    result = response2dict(response)
+    return result
+
+
+def get_me(token):
+    """
+    Un método simple para probar el token de autenticación de tu bot.
+    No requiere parámetros Devuelve información básica sobre el bot en
+    forma de un objeto Usuario.
+
+    Args:
+        token(str): token espesifico del bot que se quiere utilizar.
+
+    Returns:
+        responce(dict): resuesta obtenida del request.
+    """
+    try:
+        response = requests.get(URL_API.format(token))
+    except Exception as details:
+        logger.warning('Error al intentar hacer la solicitud de getMe\n'
+                       'Detalles: {}'.format(details))
+        raise MethodRequestError(details)
+    else:
+        request_is_ok(response)
+    result = response2dict(response)
+    return result
+
+
+class MethodRequestError(Exception):
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
+
 
 class ArgumentError(Exception):
+    def __init__(self, message):
+        super(Exception, self).__init__(message)
+
+
+class ErrorToExtractJson(Exception):
     def __init__(self, message):
         super(Exception, self).__init__(message)
 
